@@ -48,15 +48,16 @@ void Query::Send(const WriteToFile write_to_file) {
   pimpl_->Send(write_to_file);  
 }
 
-// todo try catch
 void Query::Impl::Send(const WriteToFile write_to_file) {
     curlpp::Cleanup cleaner;
     curlpp::Easy request;
-   // writer::Writer writer(&std::cout);
 
     std::string url = std::string(INTERPRETER_OVERPASS_DATA_URL);
 
     // overpass QL
+    if(!type_to_string.count(route_) || !route_to_string.count(transport_))
+        throw std::logic_error("Entry type not found");
+                
     std::string common = "[type="+type_to_string[route_]+"][route="+route_to_string[transport_]+"]";
     url += "[out:" + output_to_string[output_] + "];"; 
     url += "area[name="+area_+"]-%3E.boundaryarea;";
@@ -70,7 +71,7 @@ void Query::Impl::Send(const WriteToFile write_to_file) {
         if(OUTPUT_FILE != nullptr) {
             file = fopen(OUTPUT_FILE, "wb");
             if(file == nullptr) {
-                std::cout << strerror(errno) << std::endl;
+                throw std::runtime_error("File is null");
             }
         }
         curlpp::OptionTrait<void *, CURLOPT_WRITEDATA> data(file);        
