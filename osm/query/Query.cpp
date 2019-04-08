@@ -1,17 +1,22 @@
 #include "Query.hpp"
-
+#include "writer/Writer.hpp"
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Easy.hpp>
 #include <curlpp/Options.hpp>
 #include <curlpp/Exception.hpp>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <cerrno>
+
 
 namespace osm {
 namespace query {
 struct Query::Impl final {
+    static constexpr const char * const OUTPUT_FILE = "osm_response.xml";
     Impl(std::string area, const Type type, const Route route, const Output out);
     virtual ~Impl();
     void Send(const WriteToFile write_to_file);
-    void Write(curlpp::Easy * handle, char * ptr, std::size_t size, std::size_t nmemb);
 private: 
     Impl() = delete;
     Impl(const Impl&) = delete;
@@ -19,7 +24,6 @@ private:
     Impl& operator=(const Impl&) = delete;
     Impl& operator=(Impl&&) = delete;
 private:
-    unsigned writeRound;
     std::string area_;
     Output output_;
     Type route_;
@@ -44,14 +48,14 @@ void Query::Send(const WriteToFile write_to_file) {
   pimpl_->Send(write_to_file);  
 }
 
-void Query::Impl::Write(curlpp::Easy * handle, char * ptr, std::size_t size, std::size_t nmemb) {
-
-}
-
-
 // todo try catch
 void Query::Impl::Send(const WriteToFile write_to_file) {
+    curlpp::Cleanup cleaner;
+    curlpp::Easy request;
+   // writer::Writer writer(&std::cout);
+
     std::string url = std::string(INTERPRETER_OVERPASS_DATA_URL);
+
     // overpass QL
     std::string common = "[type="+type_to_string[route_]+"][route="+route_to_string[transport_]+"]";
     url += "[out:" + output_to_string[output_] + "];"; 
@@ -60,16 +64,23 @@ void Query::Impl::Send(const WriteToFile write_to_file) {
     url += "(area.boundaryarea);way"+common;
     url += "(area.boundaryarea);%3E;relation"+common+"(area.boundaryarea);%3E%3E;);out%20meta;";
 
-    std::cout << url << std::endl;
-    curlpp::Cleanup cleaner;
-    curlpp::Easy request;
-
-    std::cout << curlpp::options::Url(url) << std::endl;
-
-    if(static_cast<bool>(write_to_file))
-        int a = 2;
-
+    if(static_cast<bool>(write_to_file)) {
+        curlpp::options::WriteFunctionCurlFunction callback(writer::Callback); // c style, can improve
+        FILE *file = stdout;
+        if(OUTPUT_FILE != nullptr) {
+            file = fopen(OUTPUT_FILE, "wb");
+            if(file == nullptr) {
+                std::cout << strerror(errno) << std::endl;
+            }
+        }
+        curlpp::OptionTrait<void *, CURLOPT_WRITEDATA> data(file);        
+        request.setOpt(callback);
+        request.setOpt(data);
     }
+	request.setOpt(new curlpp::options::Url(url));
+	request.setOpt(new curlpp::options::Verbose(true));
+	request.perform();
+}
 
 }
 }
