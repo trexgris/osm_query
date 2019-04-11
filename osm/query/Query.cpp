@@ -60,7 +60,7 @@ void Query::Impl::Send(const WriteToFile write_to_file) {
                 
     std::string common = "[type="+type_to_string[route_]+"][route="+route_to_string[transport_]+"]";
     url += "[out:" + output_to_string[output_] + "];"; 
-    url += "area[name="+area_+"]-%3E.boundaryarea;";
+    url += "area[name="+area_+"][admin_level=2]-%3E.boundaryarea;";
     url += "(node"+common;
     url += "(area.boundaryarea);way"+common;
     url += "(area.boundaryarea);%3E;relation"+common+"(area.boundaryarea);%3E%3E;);out%20meta;";
