@@ -2,7 +2,7 @@ package com.osm_query.query;
 
 import java.util.List;
 
-public class BusRoute {
+public class BusRoute implements Element {
 	
 	private String type;
 	private long id;

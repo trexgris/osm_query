@@ -14,8 +14,8 @@ public class App
     	HttpClientBasic  h = new HttpClientBasic();
     	try {
     	
-    		
-    		/*String qid = args[0];
+    		/*
+    		String qid = args[0];
     		String q = args[1];
     		Path out_file = Paths.get("D:/json_data/"+qid+".json");
 			h.SendOsmQuery(out_file, q);

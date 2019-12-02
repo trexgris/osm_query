@@ -1,9 +1,12 @@
 package com.osm_query.query;
 
+import java.io.FileNotFoundException;
+import java.io.UnsupportedEncodingException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 
@@ -14,8 +17,15 @@ public class Pipeline {
 		Path nica_places = Paths.get("D:/json_data/nica_places.json");
 		Path nica_routes = Paths.get("D:/json_data/nica_routes.json");
 
-		parser.LoadCountryBusRoutes(nica_routes);
-		parser.LoadCountryPlaces(nica_places);		
+	//	parser.LoadCountryBusRoutes(nica_routes);
+		try {
+			parser.LoadCountryPlaces(nica_places);
+			parser.LoadCountryBusRoutes(nica_routes);
+
+		} catch (UnsupportedEncodingException | FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}		
 	}
 	
 	public void Test() {
@@ -23,27 +33,13 @@ public class Pipeline {
 	}
 	
 	public void FindPath(Place id_city_A, Place id_city_B) {	
-		
-		ArrayList<BusRoute> routes_a = parser.GetRoutesForPlace(id_city_A);
-		ArrayList<BusRoute> routes_b = parser.GetRoutesForPlace(id_city_B);
-		
-		if(routes_a.size() == 1) {
-			boolean t = true;
-		} else
-		if(routes_b.size() == 1) {
-			boolean t = true;
-		}
-		else {
-			boolean t = true;
-		}
-		
-		
-	/*	Pair bus_route_id_A = FindBusRouteForPlace(Place id_city_A);
-		Pair bus_route_id_B = FindBusRouteForPlace(Place id_city_A);
-		if(bus_route_id_A.getFirst() == bus_route_id_B.getFirst()) {			
-			boolean nice = true;
-		}
-		*/
+		HashSet<Long> idsa = parser.GetBusRoutesIdForDataPlace(id_city_A);
+		HashSet<Long> idsb = parser.GetBusRoutesIdForDataPlace(id_city_B);
+		HashSet<Long> res = new HashSet<Long>(idsa);
+		res.retainAll(idsb);
+		//ArrayList<BusRoute> routes_a = parser.GetRoutesForPlace(id_city_A);
+		//ArrayList<BusRoute> routes_b = parser.GetRoutesForPlace(id_city_B);
+	
 	}
 	
 	Pair<Long, String> FindBusRouteForPlace(Place place) {

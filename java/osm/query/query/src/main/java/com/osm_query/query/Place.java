@@ -1,11 +1,12 @@
 package com.osm_query.query;
 
-public class Place {
-	private String type;
+public class Place implements Element {
 	private long id;
 	private double lat;
 	private double lon;
 	private PlaceTags tags;
+	private String type;
+
 	
 	public double GetLon() {
 		return lon;

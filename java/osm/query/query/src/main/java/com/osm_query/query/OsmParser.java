@@ -9,6 +9,9 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import org.json.*;
@@ -18,64 +21,149 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.stream.JsonReader;
 
-
 public class OsmParser {
+	
+	
 	public OsmParser() {
 		bus_routes = new ArrayList<BusRoute>();
 		bus_route_places = new ArrayList<Place>();
+		bus_route_ways = new ArrayList<Way>();
 		country_places = new ArrayList<Place>();
+		builder = new GsonBuilder();	
+		br_map = new HashMap<Long, BusRoute>();
+		builder.registerTypeAdapter(Element.class, new ElementDeserializer());		
+
 	}
 	
-	public void LoadCountryPlaces(Path path) {
+	private BusRoute GetRouteForId(long id) {
+		for(BusRoute route : bus_routes) {
+			if (route.GetId() == id) {
+				return route;
+			}
+		}
+		return null;
+	}
+	
+	public void GetFullRoute(Place A, Place B) {
+		HashSet<Long> routes_ids_A = GetBusRoutesIdForDataPlace(A);
+		HashSet<Long> routes_ids_B = GetBusRoutesIdForDataPlace(B);
+		
+		HashSet<Long> routes_to_skip = new HashSet<Long>();
+		
+		routes_to_skip.addAll(routes_ids_A);
+		
+		for(Long route_id : routes_ids_A) {
+			BusRoute current_route = GetRouteForId(route_id);
+			for(BusRoute route_to_check : bus_routes) {
+				
+				
+			}
+		}
+		
+		
+		
+		
+		
+		
+		
+	}
+	
+
+	public void LoadCountryPlaces(Path path) throws UnsupportedEncodingException, FileNotFoundException {
 		country_places.clear();
-		try(JsonReader jsonReader = new JsonReader(new InputStreamReader(new FileInputStream(path.toString()), "UTF-8"))) {
-		    Gson gson = new GsonBuilder().create();
-		    jsonReader.beginArray();		    
-		    while (jsonReader.hasNext()){
-		    	Element type = gson.fromJson(jsonReader, Element.class);
-		    	if(type.GetType().contentEquals("node")) {
-			        Place place = gson.fromJson(jsonReader, Place.class);
-			        country_places.add(place);	
-		    	}
-		    }
-		}
-		catch (UnsupportedEncodingException e) {
-		    e.printStackTrace();
-		} catch (FileNotFoundException e) {
-		    e.printStackTrace();
-		} catch (IOException e) {
-		    e.printStackTrace();
+		JsonReader jsonReader = new JsonReader(new InputStreamReader(new FileInputStream(path.toString()), "UTF-8"));
+		Gson gson = builder.create();
+		Element[] result = gson.fromJson(jsonReader, Element[].class);
+		
+		for(Object element : result) {
+			if(element instanceof  Place) {
+				country_places.add((Place) element);
+			}
 		}
 	}
 	
 	
-	public void LoadCountryBusRoutes(Path path) {	
+	public void LoadCountryBusRoutes(Path path) throws UnsupportedEncodingException, FileNotFoundException {
 		bus_routes.clear();
 		bus_route_places.clear();
-		try(JsonReader jsonReader = new JsonReader(new InputStreamReader(new FileInputStream(path.toString()), "UTF-8"))) {
-		    Gson gson = new GsonBuilder().create();		   
-		    
-		    jsonReader.beginArray();		    
-		    while (jsonReader.hasNext()){
-		    	Element type = gson.fromJson(jsonReader, Element.class);
-		    	if(type.GetType().equals("relation")) {
-			        BusRoute route = gson.fromJson(jsonReader, BusRoute.class);
-			        bus_routes.add(route);
+		bus_route_ways.clear();
 
-		    	} else if(type.GetType().contentEquals("node")) {
-			        Place place = gson.fromJson(jsonReader, Place.class);
-			        bus_route_places.add(place);	
-		    	}
-		    }
+		JsonReader jsonReader = new JsonReader(new InputStreamReader(new FileInputStream(path.toString()), "UTF-8"));
+		Gson gson = builder.create();
+		Element[] result = gson.fromJson(jsonReader, Element[].class);
+		
+		for(Object element : result) {
+			if(element instanceof  Place) {
+				bus_route_places.add((Place) element);
+			} else if(element instanceof BusRoute) {
+				bus_routes.add((BusRoute) element);
+				
+			} else if(element instanceof Way) {
+				bus_route_ways.add((Way) element);
+			}
 		}
-		catch (UnsupportedEncodingException e) {
-		    e.printStackTrace();
-		} catch (FileNotFoundException e) {
-		    e.printStackTrace();
-		} catch (IOException e) {
-		    e.printStackTrace();
+	}
+	
+	private HashSet<Long> UnwrapBusRoute(BusRoute R){
+		HashSet<Long> ret = new HashSet<Long>();
+		List<Member> ms = R.GetMembers();
+		for(Member m : ms ) {
+			if(m.GetType().equals("node"))
+				ret.add(m.GetRef());
+			else if(m.GetType().equals("way")) {
+				for(Way w : bus_route_ways) {
+					if(w.GetId() == m.GetRef()) {
+						ret.addAll(w.GetNodes());
+					}
+				}
+			}			
+		}		
+		return ret;		
+	}
+	
+	
+	public HashSet<Long> GetNodesInCommon(BusRoute A, BusRoute B) {
+		
+		HashSet<Long> uA = UnwrapBusRoute(A);
+		HashSet<Long> uB = UnwrapBusRoute(A);
+		HashSet<Long> ret = new HashSet<Long>(uA);
+		ret.retainAll(uB);		
+		return ret;
+	}
+	
+	private HashSet<Long> GetPlacesInRadius(Place p, double radius) {
+		HashSet<Long> ret = new HashSet<Long>();
+		double plat = p.GetLat();
+		double plon = p.GetLon();
+		for(Place pp : bus_route_places) {
+			double hdist = HaversineDistance(plat, pp.GetLat(), plon, pp.GetLon(), 0.0,0.0);
+			if(hdist <= radius)
+				ret.add(pp.GetId());
 		}
-		boolean tt = true;
+		return ret;		
+	}
+	
+	public HashSet<Long> GetBusRoutesIdForDataPlace(Place p) {
+		
+		//get country places in a radius 	
+		
+		HashSet<Long> places_rad = GetPlacesInRadius(p, 10000.0);
+		
+		
+		// either a city or village or whatever
+		HashSet<Long> ret = new HashSet<Long>();
+		// go through all the bus routes of the country
+		for(BusRoute R : bus_routes ) {
+			HashSet<Long> set = UnwrapBusRoute(R);		
+			//unwrap to get nodes only
+			for(Long radius_place : places_rad) { // places in radius of Place p
+				if(set.contains(radius_place)) {
+					ret.add(R.GetId());
+				}
+			}
+			
+		} 
+		return ret;
 	}
 	
 	ArrayList<BusRoute> GetRoutesForPlace(Place p) {
@@ -100,17 +188,34 @@ public class OsmParser {
 			}			
 		}
 		
+		long way_id = -1;
+		boolean oops = false;
+		for(Way way : bus_route_ways) {	
+			List<Long> nodes = way.GetNodes();
+			for(Long node : nodes) {
+				if(node == nearest_place.GetId()) {
+					way_id = way.GetId();
+					if(oops) {
+						System.out.println("\"Hello\"");
+					}
+					oops = true;
+				}
+					
+			}			
+		}
+		
 		for(BusRoute route : bus_routes) {
 			List<Member> members = route.GetMembers();
 			for(Member member : members) {
 				if(nearest_place != null) {
-					if(member.GetRef() == nearest_place.GetId()) {
+					if((member.GetRef() == nearest_place.GetId()) || 
+							(member.GetRef() == way_id)) {
 						ret.add(route);
-					}
-				}
-				
-			}
-			
+						
+					}	
+					
+				}				
+			}			
 		}
 		
 		return ret;
@@ -139,6 +244,12 @@ public class OsmParser {
 	    return Math.sqrt(distance);
 	}
 	
+	
+	
+	
+	
+	
+	
 	public ArrayList<Place> GetRoutePlaces() {
 		return bus_route_places;
 	}
@@ -147,10 +258,14 @@ public class OsmParser {
 		return country_places;
 	}
 	
+	
+	private HashMap<Long, BusRoute> br_map;
 	private ArrayList<BusRoute> bus_routes;
 	private ArrayList<Place> bus_route_places;
 	
-	
+	private ArrayList<Way> bus_route_ways;
 	private ArrayList<Place> country_places;
+	
+	private GsonBuilder builder;
 
 }
