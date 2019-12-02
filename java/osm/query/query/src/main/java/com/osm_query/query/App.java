@@ -13,7 +13,6 @@ public class App
     {
     	HttpClientBasic  h = new HttpClientBasic();
     	try {
-    	
     		/*
     		String qid = args[0];
     		String q = args[1];
